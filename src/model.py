@@ -1,11 +1,3 @@
-"""
-model.py
-A basic LSTM autoencoder for trajectory imputation.
-
-Input: masked (x, y) sequence + mask (so the model knows what's real vs missing)
-Output: full reconstructed (x, y) sequence, including filled-in values for missing points
-"""
-
 import torch
 import torch.nn as nn
 
@@ -44,7 +36,6 @@ class LSTMImputer(nn.Module):
 
 
 if __name__ == "__main__":
-    # Quick sanity check with dummy data
     batch_size, seq_len = 4, 50
 
     dummy_masked_seq = torch.rand(batch_size, seq_len, 2)

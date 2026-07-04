@@ -1,13 +1,3 @@
-"""
-train.py
-Trains the LSTM imputer on trajectory data - supports both:
-1. Synthetic multi-vehicle data (train_model)
-2. Real I2WDD GPS data (train_model_real_gps)
-
-Loss is computed ONLY on the artificially masked (missing) points,
-since that's what we actually care about the model learning to predict.
-"""
-
 import torch
 import torch.nn as nn
 import numpy as np
@@ -19,9 +9,7 @@ from model import LSTMImputer
 
 
 def masked_mse_loss(predictions: torch.Tensor, targets: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
-    """
-    Computes MSE loss only at positions where mask is True (i.e., where data was missing).
-    """
+
     mask_expanded = mask.unsqueeze(-1).expand_as(predictions).float()
 
     squared_error = (predictions - targets) ** 2
@@ -32,9 +20,7 @@ def masked_mse_loss(predictions: torch.Tensor, targets: torch.Tensor, mask: torc
 
 
 def prepare_data(num_objects: int = 100, missing_rate: float = 0.2, seed: int = 42):
-    """
-    Runs the full data pipeline for SYNTHETIC data: generate -> preprocess -> mask.
-    """
+
     df = load_trajectories(source="synthetic", num_objects=num_objects, seed=seed)
     padded_array, lengths = preprocess_pipeline(df)
 
@@ -50,9 +36,7 @@ def prepare_data(num_objects: int = 100, missing_rate: float = 0.2, seed: int = 
 
 
 def train_val_split(original, masked, mask, val_fraction: float = 0.2, seed: int = 42):
-    """
-    Splits data into train and validation sets by object/window (not by frame).
-    """
+
     num_objects = original.shape[0]
     rng = np.random.default_rng(seed)
     indices = rng.permutation(num_objects)
@@ -68,9 +52,7 @@ def train_val_split(original, masked, mask, val_fraction: float = 0.2, seed: int
 
 
 def train_model(num_epochs: int = 100, num_objects: int = 100, missing_rate: float = 0.2, lr: float = 0.001):
-    """
-    Trains the LSTM imputer on SYNTHETIC multi-vehicle trajectory data.
-    """
+
     original, masked, mask, lengths = prepare_data(num_objects=num_objects, missing_rate=missing_rate)
     (train_orig, train_masked, train_mask), (val_orig, val_masked, val_mask) = train_val_split(original, masked, mask)
 
@@ -104,9 +86,7 @@ def train_model(num_epochs: int = 100, num_objects: int = 100, missing_rate: flo
 
 def train_model_real_gps(gps_filepath: str, num_epochs: int = 100, window_size: int = 100,
                           stride: int = 50, missing_rate: float = 0.2, lr: float = 0.001):
-    """
-    Trains the LSTM imputer on REAL I2WDD GPS trajectory data.
-    """
+
     real_traj = load_i2wdd_gps(gps_filepath)
     padded_array, lengths = segment_and_normalize_gps(real_traj, window_size=window_size, stride=stride)
 
@@ -151,11 +131,6 @@ def train_model_real_gps(gps_filepath: str, num_epochs: int = 100, window_size: 
 
 
 if __name__ == "__main__":
-    # --- Train on synthetic data ---
-    # model, val_data = train_model(num_epochs=100, num_objects=100, missing_rate=0.2)
-    # torch.save(model.state_dict(), "results/lstm_imputer.pth")
-    # print("\nModel saved to results/lstm_imputer.pth")
 
-    # --- Train on real I2WDD GPS data ---
     gps_path = "data/raw/i2wdd/18_01_25/IMU/GPS_1.csv"
     model, val_data = train_model_real_gps(gps_filepath=gps_path, num_epochs=300, missing_rate=0.2)

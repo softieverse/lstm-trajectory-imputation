@@ -1,14 +1,3 @@
-"""
-evaluate.py
-Loads the trained LSTM imputer and evaluates it on validation data.
-Supports both:
-1. Synthetic multi-vehicle data (evaluate_model)
-2. Real I2WDD GPS data (evaluate_model_real_gps)
-
-Produces interpretable metrics (RMSE) and a visualization comparing
-true vs imputed trajectories.
-"""
-
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
@@ -21,10 +10,7 @@ from model import LSTMImputer
 
 def compute_rmse(predictions: torch.Tensor, targets: torch.Tensor, mask: torch.Tensor,
                   frame_width: int = 1920, frame_height: int = 1080) -> dict:
-    """
-    Computes RMSE only on the masked (missing) points, converted back to real pixel units
-    (since our data was normalized to [0,1] earlier). Used for SYNTHETIC data.
-    """
+
     mask_expanded = mask.unsqueeze(-1).expand_as(predictions).bool()
 
     pred_masked = predictions[mask_expanded].view(-1, 2)
@@ -53,20 +39,11 @@ def compute_rmse(predictions: torch.Tensor, targets: torch.Tensor, mask: torch.T
 def compute_rmse_gps_meters(predictions: torch.Tensor, targets: torch.Tensor, mask: torch.Tensor,
                               lat_min: float, lat_max: float, long_min: float, long_max: float,
                               ref_lat: float) -> dict:
-    """
-    Computes RMSE for REAL GPS data, converting normalized values back to
-    real-world meters (much more interpretable than raw lat/long degrees).
-
-    Uses standard approximations:
-    1 degree latitude ≈ 111,320 meters
-    1 degree longitude ≈ 111,320 * cos(latitude) meters
-    """
     mask_expanded = mask.unsqueeze(-1).expand_as(predictions).bool()
 
     pred_masked = predictions[mask_expanded].view(-1, 2)
     target_masked = targets[mask_expanded].view(-1, 2)
 
-    # Un-normalize back to actual lat/long degrees
     pred_latlong = pred_masked.clone()
     pred_latlong[:, 0] = pred_latlong[:, 0] * (lat_max - lat_min) + lat_min
     pred_latlong[:, 1] = pred_latlong[:, 1] * (long_max - long_min) + long_min
@@ -75,7 +52,6 @@ def compute_rmse_gps_meters(predictions: torch.Tensor, targets: torch.Tensor, ma
     target_latlong[:, 0] = target_latlong[:, 0] * (lat_max - lat_min) + lat_min
     target_latlong[:, 1] = target_latlong[:, 1] * (long_max - long_min) + long_min
 
-    # Convert degree differences to meters
     meters_per_deg_lat = 111320.0
     meters_per_deg_long = 111320.0 * np.cos(np.radians(ref_lat))
 
@@ -100,10 +76,7 @@ def plot_trajectory_comparison(original: np.ndarray, masked: np.ndarray, predict
                                  xlabel: str = "X position (normalized)",
                                  ylabel: str = "Y position (normalized)",
                                  save_path: str = "results/trajectory_comparison.png"):
-    """
-    Plots one trajectory's true path, the observed points, and the model's predicted path.
-    Works for both synthetic and real GPS data (just pass different labels).
-    """
+
     orig = original[:real_length]
     pred = predicted[:real_length]
     m = mask[:real_length]
@@ -131,9 +104,7 @@ def plot_trajectory_comparison(original: np.ndarray, masked: np.ndarray, predict
 
 def evaluate_model(model_path: str = "results/lstm_imputer.pth", num_objects: int = 100,
                     missing_rate: float = 0.2, seed: int = 99):
-    """
-    Evaluation pipeline for SYNTHETIC data.
-    """
+
     df = load_trajectories(source="synthetic", num_objects=num_objects, seed=seed)
     padded_array, lengths = preprocess_pipeline(df)
     masked_array, mask_array = apply_masking(
@@ -172,13 +143,9 @@ def evaluate_model(model_path: str = "results/lstm_imputer.pth", num_objects: in
 def evaluate_model_real_gps(gps_filepath: str, model_path: str = "results/lstm_imputer_real_gps.pth",
                              window_size: int = 100, stride: int = 50,
                              missing_rate: float = 0.2, seed: int = 99):
-    """
-    Evaluation pipeline for REAL I2WDD GPS data.
-    Uses a different seed for masking than training, to test genuinely unseen missingness patterns.
-    """
+
     real_traj = load_i2wdd_gps(gps_filepath)
 
-    # Recompute the same min/max used during preprocessing, so we can un-normalize later
     lat_min, lat_max = real_traj[:, 0].min(), real_traj[:, 0].max()
     long_min, long_max = real_traj[:, 1].min(), real_traj[:, 1].max()
     ref_lat = real_traj[:, 0].mean()  # used for lat/long-to-meters conversion
@@ -219,6 +186,5 @@ def evaluate_model_real_gps(gps_filepath: str, model_path: str = "results/lstm_i
 
 
 if __name__ == "__main__":
-    # Evaluate on real I2WDD GPS data
     gps_path = "data/raw/i2wdd/18_01_25/IMU/GPS_1.csv"
     evaluate_model_real_gps(gps_filepath=gps_path)
